@@ -66,7 +66,7 @@ Format the response as a detailed product specification that can be pasted into 
 
     // Call Claude API
     const message = await anthropic.messages.create({
-      model: 'claude-3-5-sonnet-20240620',
+      model: 'claude-3-5-haiku-20241022',
       max_tokens: 4000,
       temperature: 0.7,
       messages: [
@@ -90,13 +90,17 @@ Format the response as a detailed product specification that can be pasted into 
 
   } catch (error: any) {
     console.error('Research API error:', error)
+    console.error('Error message:', error.message)
+    console.error('Error status:', error.status)
+    console.error('Error type:', error.type)
 
     // Handle specific Anthropic API errors
     if (error.status === 401) {
       return NextResponse.json(
         { 
           error: 'Invalid API key. Please check your ANTHROPIC_API_KEY.',
-          type: 'invalid_api_key'
+          type: 'invalid_api_key',
+          details: error.message
         },
         { status: 401 }
       )
@@ -106,7 +110,8 @@ Format the response as a detailed product specification that can be pasted into 
       return NextResponse.json(
         { 
           error: 'Rate limit exceeded. Please try again in a few minutes.',
-          type: 'rate_limit'
+          type: 'rate_limit',
+          details: error.message
         },
         { status: 429 }
       )
@@ -116,17 +121,20 @@ Format the response as a detailed product specification that can be pasted into 
       return NextResponse.json(
         { 
           error: 'Claude API is currently unavailable. Please try again later.',
-          type: 'api_unavailable'
+          type: 'api_unavailable',
+          details: error.message
         },
         { status: 500 }
       )
     }
 
-    // Generic error
+    // Generic error with more details
     return NextResponse.json(
       { 
         error: 'Failed to research idea. Please try again.',
-        type: 'generic_error'
+        type: 'generic_error',
+        details: error.message || 'Unknown error',
+        status: error.status || 'unknown'
       },
       { status: 500 }
     )
