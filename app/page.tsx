@@ -16,7 +16,11 @@ import {
   Shield,
   TestTube,
   ExternalLink,
-  Lightbulb
+  Lightbulb,
+  Search,
+  Loader2,
+  AlertCircle,
+  RefreshCw
 } from 'lucide-react'
 
 // Types
@@ -50,6 +54,10 @@ export default function MVPBuilder() {
   // State management
   const [currentStep, setCurrentStep] = useState(1)
   const [projectIdea, setProjectIdea] = useState('')
+  const [inputMode, setInputMode] = useState<'manual' | 'research'>('manual')
+  const [researchIdea, setResearchIdea] = useState('')
+  const [isResearching, setIsResearching] = useState(false)
+  const [researchError, setResearchError] = useState<string | null>(null)
   const [preferences, setPreferences] = useState<ProjectPreferences>({
     scope: '',
     designStyle: '',
@@ -494,6 +502,11 @@ ${envVarsText}`
     }
   }
 
+  // Check if research button should be enabled
+  const canResearch = (): boolean => {
+    return researchIdea.trim().length > 0 && !isResearching
+  }
+
   // Event handlers
   const handlePreferenceChange = (key: keyof ProjectPreferences, value: string) => {
     setPreferences(prev => ({ ...prev, [key]: value }))
@@ -524,6 +537,39 @@ ${envVarsText}`
   const copyToClipboard = (text: string) => {
     navigator.clipboard.writeText(text)
     // You could add a toast notification here
+  }
+
+  // Research function
+  const handleResearch = async () => {
+    if (!researchIdea.trim()) return
+
+    setIsResearching(true)
+    setResearchError(null)
+
+    try {
+      const response = await fetch('/api/research', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ idea: researchIdea }),
+      })
+
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to research idea')
+      }
+
+      // Set the researched content as the project idea
+      setProjectIdea(data.research)
+      setInputMode('manual') // Switch to manual mode to show the result
+      
+    } catch (error: any) {
+      setResearchError(error.message)
+    } finally {
+      setIsResearching(false)
+    }
   }
 
   // Initialize checklist when moving to step 4
@@ -588,41 +634,160 @@ ${envVarsText}`
       </div>
 
       <div className="glass-card p-8 mb-6">
-        <h2 className="text-2xl font-semibold text-white mb-4">
+        <h2 className="text-2xl font-semibold text-white mb-6">
           What do you want to build?
         </h2>
-        <textarea
-          value={projectIdea}
-          onChange={(e) => setProjectIdea(e.target.value)}
-          placeholder="Describe your product idea in detail. What problem does it solve? Who is it for? What features should it have? Be as specific as possible..."
-          className="glass-textarea w-full h-48 mb-4"
-        />
-        
-        <div className="mb-6">
-          <h3 className="text-lg font-medium text-white mb-3">
-            Need inspiration? Here are some examples:
-          </h3>
-          <div className="grid gap-3">
-            {[
-              "A Reddit clone where users can create communities, post content, and vote on posts. Include user authentication, moderation tools, and a clean mobile-responsive design.",
-              "A task management app like Trello with drag-and-drop boards, team collaboration, file attachments, and real-time updates.",
-              "A social media dashboard that aggregates posts from Twitter, Instagram, and Facebook with analytics and scheduling features.",
-              "An e-commerce platform for selling digital products with Stripe payments, user accounts, and an admin dashboard."
-            ].map((example, index) => (
-              <button
-                key={index}
-                onClick={() => setProjectIdea(example)}
-                className="glass-button text-left p-4 hover:bg-white/20 transition-all duration-200"
-              >
-                <div className="flex items-start space-x-3">
-                  <Lightbulb className="w-5 h-5 text-yellow-400 mt-0.5 flex-shrink-0" />
-                  <span className="text-white/90 text-sm">{example}</span>
-                </div>
-              </button>
-            ))}
-          </div>
+
+        {/* Input Mode Toggle */}
+        <div className="flex space-x-4 mb-6">
+          <button
+            onClick={() => setInputMode('manual')}
+            className={`flex-1 p-4 rounded-lg border-2 transition-all duration-200 ${
+              inputMode === 'manual'
+                ? 'border-purple-400 bg-purple-500/20 text-white'
+                : 'border-white/20 bg-white/5 text-white/70 hover:bg-white/10'
+            }`}
+          >
+            <div className="flex items-center justify-center space-x-2">
+              <Copy className="w-5 h-5" />
+              <span className="font-medium">I have a detailed spec already</span>
+            </div>
+            <p className="text-sm mt-1 opacity-80">Paste your complete product specification</p>
+          </button>
+
+          <button
+            onClick={() => setInputMode('research')}
+            className={`flex-1 p-4 rounded-lg border-2 transition-all duration-200 ${
+              inputMode === 'research'
+                ? 'border-purple-400 bg-purple-500/20 text-white'
+                : 'border-white/20 bg-white/5 text-white/70 hover:bg-white/10'
+            }`}
+          >
+            <div className="flex items-center justify-center space-x-2">
+              <Search className="w-5 h-5" />
+              <span className="font-medium">Research my idea with AI</span>
+            </div>
+            <p className="text-sm mt-1 opacity-80">AI will research and create a detailed spec</p>
+          </button>
         </div>
 
+        {/* Manual Input Mode */}
+        {inputMode === 'manual' && (
+          <div>
+            <textarea
+              value={projectIdea}
+              onChange={(e) => setProjectIdea(e.target.value)}
+              placeholder="Describe your product idea in detail. What problem does it solve? Who is it for? What features should it have? Be as specific as possible..."
+              className="glass-textarea w-full h-48 mb-4"
+            />
+            
+            <div className="mb-6">
+              <h3 className="text-lg font-medium text-white mb-3">
+                Need inspiration? Here are some examples:
+              </h3>
+              <div className="grid gap-3">
+                {[
+                  "A Reddit clone where users can create communities, post content, and vote on posts. Include user authentication, moderation tools, and a clean mobile-responsive design.",
+                  "A task management app like Trello with drag-and-drop boards, team collaboration, file attachments, and real-time updates.",
+                  "A social media dashboard that aggregates posts from Twitter, Instagram, and Facebook with analytics and scheduling features.",
+                  "An e-commerce platform for selling digital products with Stripe payments, user accounts, and an admin dashboard."
+                ].map((example, index) => (
+                  <button
+                    key={index}
+                    onClick={() => setProjectIdea(example)}
+                    className="glass-button text-left p-4 hover:bg-white/20 transition-all duration-200"
+                  >
+                    <div className="flex items-start space-x-3">
+                      <Lightbulb className="w-5 h-5 text-yellow-400 mt-0.5 flex-shrink-0" />
+                      <span className="text-white/90 text-sm">{example}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Research Input Mode */}
+        {inputMode === 'research' && (
+          <div>
+            <textarea
+              value={researchIdea}
+              onChange={(e) => setResearchIdea(e.target.value)}
+              placeholder="Describe your product idea briefly. For example: 'A task management app for remote teams' or 'A social media platform for pet owners'..."
+              className="glass-textarea w-full h-32 mb-4"
+            />
+
+            {/* Research Button */}
+            <button
+              onClick={handleResearch}
+              disabled={!canResearch()}
+              className={`w-full glass-button-primary mb-4 ${
+                !canResearch() ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
+            >
+              {isResearching ? (
+                <div className="flex items-center justify-center space-x-2">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  <span>AI is researching your idea...</span>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center space-x-2">
+                  <Search className="w-5 h-5" />
+                  <span>Research This Idea</span>
+                </div>
+              )}
+            </button>
+
+            {/* Research Error */}
+            {researchError && (
+              <div className="bg-red-500/20 border border-red-500/30 rounded-lg p-4 mb-4">
+                <div className="flex items-start space-x-3">
+                  <AlertCircle className="w-5 h-5 text-red-400 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <h4 className="font-medium text-red-300 mb-1">Research Failed</h4>
+                    <p className="text-red-200 text-sm mb-3">{researchError}</p>
+                    <button
+                      onClick={() => setResearchError(null)}
+                      className="text-red-300 hover:text-red-200 text-sm underline"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Research Examples */}
+            <div className="mb-6">
+              <h3 className="text-lg font-medium text-white mb-3">
+                Research examples:
+              </h3>
+              <div className="grid gap-3">
+                {[
+                  "A Reddit clone for tech discussions",
+                  "Task management app for remote teams",
+                  "Social media dashboard with analytics",
+                  "E-commerce platform for digital products"
+                ].map((example, index) => (
+                  <button
+                    key={index}
+                    onClick={() => setResearchIdea(example)}
+                    disabled={isResearching}
+                    className="glass-button text-left p-4 hover:bg-white/20 transition-all duration-200 disabled:opacity-50"
+                  >
+                    <div className="flex items-start space-x-3">
+                      <Search className="w-5 h-5 text-purple-400 mt-0.5 flex-shrink-0" />
+                      <span className="text-white/90 text-sm">{example}</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Continue Button */}
         <button
           onClick={() => proceedToStep(2)}
           disabled={!canProceedToStep(2)}
