@@ -20,8 +20,22 @@ import {
   Search,
   Loader2,
   AlertCircle,
-  RefreshCw
+  RefreshCw,
+  FileText,
+  Users,
+  Settings,
+  Rocket
 } from 'lucide-react'
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
+import { Badge } from "@/components/ui/badge"
+import { Progress } from "@/components/ui/progress"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Separator } from "@/components/ui/separator"
 
 // Types
 interface ProjectPreferences {
@@ -42,6 +56,7 @@ interface ChecklistItem {
   credentials: string[]
   required: boolean
   completed: boolean
+  credentialValues: { [key: string]: string }
 }
 
 interface Feature {
@@ -69,6 +84,7 @@ export default function MVPBuilder() {
   const [features, setFeatures] = useState<Feature[]>([])
   const [checklist, setChecklist] = useState<ChecklistItem[]>([])
   const [newFeature, setNewFeature] = useState('')
+  const [userCredentials, setUserCredentials] = useState<{ [key: string]: string }>({})
 
   // Preference options with time estimates
   const preferenceOptions = {
@@ -116,7 +132,8 @@ export default function MVPBuilder() {
         links: [{ label: 'Download Cursor', url: 'https://cursor.sh' }],
         credentials: [],
         required: true,
-        completed: false
+        completed: false,
+        credentialValues: {}
       },
       {
         id: 'github',
@@ -131,7 +148,8 @@ export default function MVPBuilder() {
         links: [{ label: 'Create Repository', url: 'https://github.com/new' }],
         credentials: ['Repository URL'],
         required: true,
-        completed: false
+        completed: false,
+        credentialValues: {}
       },
       {
         id: 'vercel',
@@ -146,7 +164,8 @@ export default function MVPBuilder() {
         links: [{ label: 'Sign up for Vercel', url: 'https://vercel.com' }],
         credentials: ['Vercel account email'],
         required: true,
-        completed: false
+        completed: false,
+        credentialValues: {}
       }
     ]
 
@@ -167,7 +186,8 @@ export default function MVPBuilder() {
         links: [{ label: 'Create Supabase Project', url: 'https://supabase.com' }],
         credentials: ['SUPABASE_URL', 'SUPABASE_ANON_KEY'],
         required: true,
-        completed: false
+        completed: false,
+        credentialValues: {}
       })
     }
 
@@ -185,7 +205,8 @@ export default function MVPBuilder() {
         links: [{ label: 'Reddit API Setup', url: 'https://reddit.com/prefs/apps' }],
         credentials: ['REDDIT_CLIENT_ID', 'REDDIT_CLIENT_SECRET'],
         required: true,
-        completed: false
+        completed: false,
+        credentialValues: {}
       })
     }
 
@@ -203,7 +224,8 @@ export default function MVPBuilder() {
         links: [{ label: 'Bluesky Signup', url: 'https://bsky.app' }],
         credentials: ['BLUESKY_HANDLE', 'BLUESKY_APP_PASSWORD'],
         required: true,
-        completed: false
+        completed: false,
+        credentialValues: {}
       })
     }
 
@@ -221,7 +243,8 @@ export default function MVPBuilder() {
         links: [{ label: 'OpenAI API Keys', url: 'https://platform.openai.com/api-keys' }],
         credentials: ['OPENAI_API_KEY'],
         required: true,
-        completed: false
+        completed: false,
+        credentialValues: {}
       })
     }
 
@@ -239,7 +262,8 @@ export default function MVPBuilder() {
         links: [{ label: 'Stripe Dashboard', url: 'https://dashboard.stripe.com' }],
         credentials: ['STRIPE_PUBLISHABLE_KEY', 'STRIPE_SECRET_KEY'],
         required: true,
-        completed: false
+        completed: false,
+        credentialValues: {}
       })
     }
 
@@ -494,8 +518,10 @@ ${envVarsText}`
       case 3:
         return Object.values(preferences).every(value => value !== '')
       case 4:
-        return checklist.filter(item => item.required).every(item => item.completed)
+        return true // Project summary - no validation needed
       case 5:
+        return checklist.filter(item => item.required).every(item => item.completed)
+      case 6:
         return true
       default:
         return true
@@ -532,6 +558,38 @@ ${envVarsText}`
     setChecklist(prev => prev.map(item => 
       item.id === id ? { ...item, completed: !item.completed } : item
     ))
+  }
+
+  const handleCredentialChange = (itemId: string, credential: string, value: string) => {
+    setChecklist(prev => prev.map(item => 
+      item.id === itemId 
+        ? { 
+            ...item, 
+            credentialValues: { 
+              ...item.credentialValues, 
+              [credential]: value 
+            } 
+          }
+        : item
+    ))
+  }
+
+  const copyAllCredentials = () => {
+    const allCredentials = checklist
+      .filter(item => item.credentials.length > 0)
+      .flatMap(item => 
+        item.credentials.map(cred => ({
+          name: cred,
+          value: item.credentialValues[cred] || ''
+        }))
+      )
+      .filter(cred => cred.value)
+
+    const formattedCredentials = allCredentials
+      .map(cred => `${cred.name}=${cred.value}`)
+      .join('\n')
+
+    navigator.clipboard.writeText(formattedCredentials)
   }
 
   const copyToClipboard = (text: string) => {
@@ -572,9 +630,9 @@ ${envVarsText}`
     }
   }
 
-  // Initialize checklist when moving to step 4
+  // Initialize checklist when moving to step 5 (setup)
   const proceedToStep = (step: number) => {
-    if (step === 4 && checklist.length === 0) {
+    if (step === 5 && checklist.length === 0) {
       const newChecklist = generateChecklist(projectIdea)
       setChecklist(newChecklist)
     }
@@ -593,25 +651,26 @@ ${envVarsText}`
       { number: 1, label: 'Idea' },
       { number: 2, label: 'Preferences' },
       { number: 3, label: 'Review' },
-      { number: 4, label: 'Setup' },
-      { number: 5, label: 'Prompts' }
+      { number: 4, label: 'Summary' },
+      { number: 5, label: 'Setup' },
+      { number: 6, label: 'Prompts' }
     ]
 
     return (
-      <div className="flex items-center justify-center space-x-4 mb-8">
+      <div className="flex items-center justify-center space-x-2 mb-8 max-w-4xl mx-auto">
         {steps.map((step, index) => (
           <div key={step.number} className="flex items-center">
             <div className={`progress-dot ${
               step.number < currentStep ? 'completed' :
               step.number === currentStep ? 'current' : 'upcoming'
             }`} />
-            <span className={`ml-2 text-sm font-medium ${
-              step.number <= currentStep ? 'text-white' : 'text-white/60'
+            <span className={`ml-2 text-sm font-medium hidden sm:block ${
+              step.number <= currentStep ? 'text-zinc-900' : 'text-zinc-500'
             }`}>
               {step.label}
             </span>
             {index < steps.length - 1 && (
-              <ChevronRight className="w-4 h-4 text-white/40 mx-4" />
+              <ChevronRight className="w-4 h-4 text-zinc-400 mx-2" />
             )}
           </div>
         ))}
@@ -620,184 +679,167 @@ ${envVarsText}`
   }
 
   const renderStep1 = () => (
-    <div className="animate-fade-in">
-      <div className="text-center mb-8">
-        <h1 className="text-4xl font-bold text-white mb-4 text-shadow">
+    <div className="animate-fade-in space-y-8">
+      <div className="text-center space-y-4">
+        <h1 className="text-4xl sm:text-5xl font-bold gradient-header">
           MVP Builder
         </h1>
-        <p className="text-xl text-white/80 mb-2">
+        <p className="text-xl text-muted-foreground">
           Build products with AI
         </p>
-        <p className="text-white/60">
+        <p className="text-sm text-muted-foreground">
           Step 1: Tell us about your product idea
         </p>
       </div>
 
-      <div className="glass-card p-8 mb-6">
-        <h2 className="text-2xl font-semibold text-white mb-6">
-          What do you want to build?
-        </h2>
+      <Card className="max-w-4xl mx-auto">
+        <CardHeader>
+          <CardTitle className="text-2xl">What do you want to build?</CardTitle>
+          <CardDescription>
+            Choose how you&apos;d like to describe your product idea
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {/* Input Mode Toggle */}
+          <Tabs value={inputMode} onValueChange={(value) => setInputMode(value as 'manual' | 'research')} className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="manual" className="flex items-center space-x-2">
+                <Copy className="w-4 h-4" />
+                <span className="hidden sm:inline">I have a detailed spec</span>
+                <span className="sm:hidden">Manual</span>
+              </TabsTrigger>
+              <TabsTrigger value="research" className="flex items-center space-x-2">
+                <Search className="w-4 h-4" />
+                <span className="hidden sm:inline">Research with AI</span>
+                <span className="sm:hidden">AI Research</span>
+              </TabsTrigger>
+            </TabsList>
 
-        {/* Input Mode Toggle */}
-        <div className="flex space-x-4 mb-6">
-          <button
-            onClick={() => setInputMode('manual')}
-            className={`flex-1 p-4 rounded-lg border-2 transition-all duration-200 ${
-              inputMode === 'manual'
-                ? 'border-purple-400 bg-purple-500/20 text-white'
-                : 'border-white/20 bg-white/5 text-white/70 hover:bg-white/10'
-            }`}
-          >
-            <div className="flex items-center justify-center space-x-2">
-              <Copy className="w-5 h-5" />
-              <span className="font-medium">I have a detailed spec already</span>
-            </div>
-            <p className="text-sm mt-1 opacity-80">Paste your complete product specification</p>
-          </button>
-
-          <button
-            onClick={() => setInputMode('research')}
-            className={`flex-1 p-4 rounded-lg border-2 transition-all duration-200 ${
-              inputMode === 'research'
-                ? 'border-purple-400 bg-purple-500/20 text-white'
-                : 'border-white/20 bg-white/5 text-white/70 hover:bg-white/10'
-            }`}
-          >
-            <div className="flex items-center justify-center space-x-2">
-              <Search className="w-5 h-5" />
-              <span className="font-medium">Research my idea with AI</span>
-            </div>
-            <p className="text-sm mt-1 opacity-80">AI will research and create a detailed spec</p>
-          </button>
-        </div>
-
-        {/* Manual Input Mode */}
-        {inputMode === 'manual' && (
-          <div>
-            <textarea
-              value={projectIdea}
-              onChange={(e) => setProjectIdea(e.target.value)}
-              placeholder="Describe your product idea in detail. What problem does it solve? Who is it for? What features should it have? Be as specific as possible..."
-              className="glass-textarea w-full h-48 mb-4"
-            />
-            
-            <div className="mb-6">
-              <h3 className="text-lg font-medium text-white mb-3">
-                Need inspiration? Here are some examples:
-              </h3>
-              <div className="grid gap-3">
-                {[
-                  "A Reddit clone where users can create communities, post content, and vote on posts. Include user authentication, moderation tools, and a clean mobile-responsive design.",
-                  "A task management app like Trello with drag-and-drop boards, team collaboration, file attachments, and real-time updates.",
-                  "A social media dashboard that aggregates posts from Twitter, Instagram, and Facebook with analytics and scheduling features.",
-                  "An e-commerce platform for selling digital products with Stripe payments, user accounts, and an admin dashboard."
-                ].map((example, index) => (
-                  <button
-                    key={index}
-                    onClick={() => setProjectIdea(example)}
-                    className="glass-button text-left p-4 hover:bg-white/20 transition-all duration-200"
-                  >
-                    <div className="flex items-start space-x-3">
-                      <Lightbulb className="w-5 h-5 text-yellow-400 mt-0.5 flex-shrink-0" />
-                      <span className="text-white/90 text-sm">{example}</span>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Research Input Mode */}
-        {inputMode === 'research' && (
-          <div>
-            <textarea
-              value={researchIdea}
-              onChange={(e) => setResearchIdea(e.target.value)}
-              placeholder="Describe your product idea briefly. For example: 'A task management app for remote teams' or 'A social media platform for pet owners'..."
-              className="glass-textarea w-full h-32 mb-4"
-            />
-
-            {/* Research Button */}
-            <button
-              onClick={handleResearch}
-              disabled={!canResearch()}
-              className={`w-full glass-button-primary mb-4 ${
-                !canResearch() ? 'opacity-50 cursor-not-allowed' : ''
-              }`}
-            >
-              {isResearching ? (
-                <div className="flex items-center justify-center space-x-2">
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  <span>AI is researching your idea...</span>
-                </div>
-              ) : (
-                <div className="flex items-center justify-center space-x-2">
-                  <Search className="w-5 h-5" />
-                  <span>Research This Idea</span>
-                </div>
-              )}
-            </button>
-
-            {/* Research Error */}
-            {researchError && (
-              <div className="bg-red-500/20 border border-red-500/30 rounded-lg p-4 mb-4">
-                <div className="flex items-start space-x-3">
-                  <AlertCircle className="w-5 h-5 text-red-400 mt-0.5 flex-shrink-0" />
-                  <div>
-                    <h4 className="font-medium text-red-300 mb-1">Research Failed</h4>
-                    <p className="text-red-200 text-sm mb-3">{researchError}</p>
-                    <button
-                      onClick={() => setResearchError(null)}
-                      className="text-red-300 hover:text-red-200 text-sm underline"
-                    >
-                      Dismiss
-                    </button>
+            <TabsContent value="manual" className="space-y-4">
+              <div className="space-y-4">
+                <Textarea
+                  value={projectIdea}
+                  onChange={(e) => setProjectIdea(e.target.value)}
+                  placeholder="Describe your product idea in detail. What problem does it solve? Who is it for? What features should it have? Be as specific as possible..."
+                  className="min-h-[200px] resize-none"
+                />
+                
+                <div className="space-y-3">
+                  <h3 className="text-lg font-medium">Need inspiration? Here are some examples:</h3>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {[
+                      "A Reddit clone where users can create communities, post content, and vote on posts. Include user authentication, moderation tools, and a clean mobile-responsive design.",
+                      "A task management app like Trello with drag-and-drop boards, team collaboration, file attachments, and real-time updates.",
+                      "A social media dashboard that aggregates posts from Twitter, Instagram, and Facebook with analytics and scheduling features.",
+                      "An e-commerce platform for selling digital products with Stripe payments, user accounts, and an admin dashboard."
+                    ].map((example, index) => (
+                      <Button
+                        key={index}
+                        variant="outline"
+                        onClick={() => setProjectIdea(example)}
+                        className="h-auto p-4 text-left justify-start"
+                      >
+                        <div className="flex items-start space-x-3">
+                          <Lightbulb className="w-5 h-5 text-yellow-500 mt-0.5 flex-shrink-0" />
+                          <span className="text-sm">{example}</span>
+                        </div>
+                      </Button>
+                    ))}
                   </div>
                 </div>
               </div>
-            )}
+            </TabsContent>
 
-            {/* Research Examples */}
-            <div className="mb-6">
-              <h3 className="text-lg font-medium text-white mb-3">
-                Research examples:
-              </h3>
-              <div className="grid gap-3">
-                {[
-                  "A Reddit clone for tech discussions",
-                  "Task management app for remote teams",
-                  "Social media dashboard with analytics",
-                  "E-commerce platform for digital products"
-                ].map((example, index) => (
-                  <button
-                    key={index}
-                    onClick={() => setResearchIdea(example)}
-                    disabled={isResearching}
-                    className="glass-button text-left p-4 hover:bg-white/20 transition-all duration-200 disabled:opacity-50"
-                  >
-                    <div className="flex items-start space-x-3">
-                      <Search className="w-5 h-5 text-purple-400 mt-0.5 flex-shrink-0" />
-                      <span className="text-white/90 text-sm">{example}</span>
-                    </div>
-                  </button>
-                ))}
+            <TabsContent value="research" className="space-y-4">
+              <div className="space-y-4">
+                <Textarea
+                  value={researchIdea}
+                  onChange={(e) => setResearchIdea(e.target.value)}
+                  placeholder="Describe your product idea briefly. For example: 'A task management app for remote teams' or 'A social media platform for pet owners'..."
+                  className="min-h-[120px] resize-none"
+                />
+
+                <Button
+                  onClick={handleResearch}
+                  disabled={!canResearch()}
+                  className="w-full"
+                  size="lg"
+                >
+                  {isResearching ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      AI is researching your idea...
+                    </>
+                  ) : (
+                    <>
+                      <Search className="w-4 h-4 mr-2" />
+                      Research This Idea
+                    </>
+                  )}
+                </Button>
+
+                {/* Research Error */}
+                {researchError && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      <div className="space-y-2">
+                        <p className="font-medium">Research Failed</p>
+                        <p>{researchError}</p>
+                        <Button
+                          variant="link"
+                          size="sm"
+                          onClick={() => setResearchError(null)}
+                          className="h-auto p-0"
+                        >
+                          Dismiss
+                        </Button>
+                      </div>
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                <div className="space-y-3">
+                  <h3 className="text-lg font-medium">Research examples:</h3>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {[
+                      "A Reddit clone for tech discussions",
+                      "Task management app for remote teams",
+                      "Social media dashboard with analytics",
+                      "E-commerce platform for digital products"
+                    ].map((example, index) => (
+                      <Button
+                        key={index}
+                        variant="outline"
+                        onClick={() => setResearchIdea(example)}
+                        disabled={isResearching}
+                        className="h-auto p-3 text-left justify-start"
+                      >
+                        <div className="flex items-start space-x-3">
+                          <Search className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                          <span className="text-sm">{example}</span>
+                        </div>
+                      </Button>
+                    ))}
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
-        )}
+            </TabsContent>
+          </Tabs>
 
-        {/* Continue Button */}
-        <button
-          onClick={() => proceedToStep(2)}
-          disabled={!canProceedToStep(2)}
-          className={`w-full glass-button-primary ${
-            !canProceedToStep(2) ? 'opacity-50 cursor-not-allowed' : ''
-          }`}
-        >
-          Continue to Preferences
-        </button>
-      </div>
+          <Separator />
+
+          <Button
+            onClick={() => proceedToStep(2)}
+            disabled={!canProceedToStep(2)}
+            className="w-full"
+            size="lg"
+          >
+            Continue to Preferences
+            <ChevronRight className="w-4 h-4 ml-2" />
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   )
 
@@ -1129,9 +1171,64 @@ ${envVarsText}`
     </div>
   )
 
+  const renderStep6 = () => (
+    <div className="animate-fade-in">
+      <div className="text-center mb-8">
+        <h1 className="text-3xl font-bold text-white mb-4 text-shadow">
+          Build Prompts
+        </h1>
+        <p className="text-white/80">
+          Use these prompts with Claude Code to build your product step by step
+        </p>
+      </div>
+
+      <div className="glass-card p-6 mb-6">
+        <h2 className="text-xl font-semibold text-white mb-4">How to use these prompts:</h2>
+        <div className="space-y-2 text-white/80">
+          <p>1. Copy each prompt one at a time</p>
+          <p>2. Paste it into Claude Code</p>
+          <p>3. Follow the instructions Claude provides</p>
+          <p>4. Move to the next prompt when ready</p>
+          <p>5. Ask Claude for help if you get stuck</p>
+        </div>
+      </div>
+
+      <div className="space-y-6">
+        {generatePrompts().map((prompt, index) => (
+          <div key={index} className="glass-card p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-semibold text-white">{prompt.phase}</h3>
+              <button
+                onClick={() => copyToClipboard(prompt.prompt)}
+                className="glass-button flex items-center space-x-2"
+              >
+                <Copy className="w-4 h-4" />
+                <span>Copy</span>
+              </button>
+            </div>
+            <div className="bg-black/20 rounded-lg p-4">
+              <pre className="text-white/90 text-sm whitespace-pre-wrap font-mono">
+                {prompt.prompt}
+              </pre>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      <div className="text-center mt-8">
+        <button
+          onClick={() => setCurrentStep(1)}
+          className="glass-button-primary"
+        >
+          Start New Project
+        </button>
+      </div>
+    </div>
+  )
+
   return (
-    <div className="min-h-screen bg-main-gradient">
-      <div className="container mx-auto px-4 py-8">
+    <div className="min-h-screen bg-gradient-to-br from-white to-zinc-50">
+      <div className="container mx-auto px-4 py-8 max-w-6xl">
         {renderProgressIndicator()}
         
         {currentStep === 1 && renderStep1()}
@@ -1139,6 +1236,7 @@ ${envVarsText}`
         {currentStep === 3 && renderStep3()}
         {currentStep === 4 && renderStep4()}
         {currentStep === 5 && renderStep5()}
+        {currentStep === 6 && renderStep6()}
       </div>
     </div>
   )
