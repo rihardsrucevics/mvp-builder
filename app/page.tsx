@@ -26,16 +26,8 @@ import {
   Settings,
   Rocket
 } from 'lucide-react'
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
-import { Badge } from "@/components/ui/badge"
-import { Progress } from "@/components/ui/progress"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Separator } from "@/components/ui/separator"
+import { ThemeSwitcher } from "@/components/theme-switcher"
+import { PrelineInit } from "@/components/preline-init"
 
 // Types
 interface ProjectPreferences {
@@ -69,7 +61,7 @@ export default function MVPBuilder() {
   // State management
   const [currentStep, setCurrentStep] = useState(1)
   const [projectIdea, setProjectIdea] = useState('')
-  const [inputMode, setInputMode] = useState<'research'>('research')
+  const [inputMode, setInputMode] = useState<'manual' | 'research'>('manual')
   const [researchIdea, setResearchIdea] = useState('')
   const [isResearching, setIsResearching] = useState(false)
   const [researchError, setResearchError] = useState<string | null>(null)
@@ -514,7 +506,7 @@ ${envVarsText}`
   const canProceedToStep = (step: number): boolean => {
     switch (step) {
       case 2:
-        return projectIdea.trim().length > 0 // Only proceed if research is complete
+        return projectIdea.trim().length > 0
       case 3:
         return Object.values(preferences).every(value => value !== '')
       case 4:
@@ -621,6 +613,7 @@ ${envVarsText}`
 
       // Set the researched content as the project idea
       setProjectIdea(data.research)
+      setInputMode('manual') // Switch to manual mode to show the result
       
     } catch (error: any) {
       setResearchError(error.message)
@@ -659,17 +652,18 @@ ${envVarsText}`
       <div className="flex items-center justify-center space-x-2 mb-8 max-w-4xl mx-auto">
         {steps.map((step, index) => (
           <div key={step.number} className="flex items-center">
-            <div className={`progress-dot ${
-              step.number < currentStep ? 'completed' :
-              step.number === currentStep ? 'current' : 'upcoming'
+            <div className={`w-4 h-4 rounded-full border-2 transition-all duration-300 ${
+              step.number < currentStep ? 'bg-blue-600 border-blue-600' :
+              step.number === currentStep ? 'border-blue-600 bg-blue-100 dark:bg-blue-900/30' : 
+              'border-gray-300 dark:border-neutral-600 bg-transparent'
             }`} />
             <span className={`ml-2 text-sm font-medium hidden sm:block ${
-              step.number <= currentStep ? 'text-zinc-900' : 'text-zinc-500'
+              step.number <= currentStep ? 'text-gray-900 dark:text-white' : 'text-gray-500 dark:text-neutral-400'
             }`}>
               {step.label}
             </span>
             {index < steps.length - 1 && (
-              <ChevronRight className="w-4 h-4 text-zinc-400 mx-2" />
+              <ChevronRight className="w-4 h-4 text-gray-400 dark:text-neutral-600 mx-2" />
             )}
           </div>
         ))}
@@ -683,93 +677,160 @@ ${envVarsText}`
         <h1 className="text-4xl sm:text-5xl font-bold gradient-header">
           MVP Builder
         </h1>
-        <p className="text-xl text-zinc-600">
+        <p className="text-xl text-muted-foreground">
           Build products with AI
         </p>
-        <p className="text-sm text-zinc-500">
-          Step 1: Tell us your idea and we&apos;ll research it for you
+        <p className="text-sm text-muted-foreground">
+          Step 1: Tell us about your product idea
         </p>
       </div>
 
-      <Card className="max-w-3xl mx-auto">
-        <CardHeader className="text-center">
+      <Card className="max-w-4xl mx-auto">
+        <CardHeader>
           <CardTitle className="text-2xl">What do you want to build?</CardTitle>
           <CardDescription>
-            Describe your product idea in a few words, and our AI will research and create a detailed specification for you
+            Choose how you&apos;d like to describe your product idea
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="space-y-4">
-            <Textarea
-              value={researchIdea}
-              onChange={(e) => setResearchIdea(e.target.value)}
-              placeholder="For example: 'A task management app for remote teams' or 'A social media platform for pet owners'..."
-              className="min-h-[120px] resize-none text-base"
-            />
+          {/* Input Mode Toggle */}
+          <Tabs value={inputMode} onValueChange={(value) => setInputMode(value as 'manual' | 'research')} className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="manual" className="flex items-center space-x-2">
+                <Copy className="w-4 h-4" />
+                <span className="hidden sm:inline">I have a detailed spec</span>
+                <span className="sm:hidden">Manual</span>
+              </TabsTrigger>
+              <TabsTrigger value="research" className="flex items-center space-x-2">
+                <Search className="w-4 h-4" />
+                <span className="hidden sm:inline">Research with AI</span>
+                <span className="sm:hidden">AI Research</span>
+              </TabsTrigger>
+            </TabsList>
 
-            <Button
-              onClick={handleResearch}
-              disabled={!canResearch()}
-              className="w-full"
-              size="lg"
-            >
-              {isResearching ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  AI is researching your idea...
-                </>
-              ) : (
-                <>
-                  <Search className="w-4 h-4 mr-2" />
-                  Research This Idea
-                </>
-              )}
-            </Button>
-
-            {/* Research Error */}
-            {researchError && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>
-                  <div className="space-y-2">
-                    <p className="font-medium">Research Failed</p>
-                    <p>{researchError}</p>
-                    <Button
-                      variant="link"
-                      size="sm"
-                      onClick={() => setResearchError(null)}
-                      className="h-auto p-0"
-                    >
-                      Dismiss
-                    </Button>
-                  </div>
-                </AlertDescription>
-              </Alert>
-            )}
-
-            {/* Show research result if available */}
-            {projectIdea && !isResearching && (
+            <TabsContent value="manual" className="space-y-4">
               <div className="space-y-4">
-                <Separator />
+                <Textarea
+                  value={projectIdea}
+                  onChange={(e) => setProjectIdea(e.target.value)}
+                  placeholder="Describe your product idea in detail. What problem does it solve? Who is it for? What features should it have? Be as specific as possible..."
+                  className="min-h-[200px] resize-none"
+                />
+                
                 <div className="space-y-3">
-                  <h3 className="text-lg font-medium text-green-700">✅ Research Complete!</h3>
-                  <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                    <p className="text-sm text-green-800 mb-3">
-                      Our AI has researched your idea and created a detailed specification. Ready to continue?
-                    </p>
-                    <Button
-                      onClick={() => proceedToStep(2)}
-                      className="w-full"
-                      size="lg"
-                    >
-                      Continue to Preferences
-                      <ChevronRight className="w-4 h-4 ml-2" />
-                    </Button>
+                  <h3 className="text-lg font-medium">Need inspiration? Here are some examples:</h3>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {[
+                      "A Reddit clone where users can create communities, post content, and vote on posts. Include user authentication, moderation tools, and a clean mobile-responsive design.",
+                      "A task management app like Trello with drag-and-drop boards, team collaboration, file attachments, and real-time updates.",
+                      "A social media dashboard that aggregates posts from Twitter, Instagram, and Facebook with analytics and scheduling features.",
+                      "An e-commerce platform for selling digital products with Stripe payments, user accounts, and an admin dashboard."
+                    ].map((example, index) => (
+                      <Button
+                        key={index}
+                        variant="outline"
+                        onClick={() => setProjectIdea(example)}
+                        className="h-auto p-4 text-left justify-start"
+                      >
+                        <div className="flex items-start space-x-3">
+                          <Lightbulb className="w-5 h-5 text-yellow-500 mt-0.5 flex-shrink-0" />
+                          <span className="text-sm">{example}</span>
+                        </div>
+                      </Button>
+                    ))}
                   </div>
                 </div>
               </div>
-            )}
-          </div>
+            </TabsContent>
+
+            <TabsContent value="research" className="space-y-4">
+              <div className="space-y-4">
+                <Textarea
+                  value={researchIdea}
+                  onChange={(e) => setResearchIdea(e.target.value)}
+                  placeholder="Describe your product idea briefly. For example: 'A task management app for remote teams' or 'A social media platform for pet owners'..."
+                  className="min-h-[120px] resize-none"
+                />
+
+                <Button
+                  onClick={handleResearch}
+                  disabled={!canResearch()}
+                  className="w-full"
+                  size="lg"
+                >
+                  {isResearching ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      AI is researching your idea...
+                    </>
+                  ) : (
+                    <>
+                      <Search className="w-4 h-4 mr-2" />
+                      Research This Idea
+                    </>
+                  )}
+                </Button>
+
+                {/* Research Error */}
+                {researchError && (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      <div className="space-y-2">
+                        <p className="font-medium">Research Failed</p>
+                        <p>{researchError}</p>
+                        <Button
+                          variant="link"
+                          size="sm"
+                          onClick={() => setResearchError(null)}
+                          className="h-auto p-0"
+                        >
+                          Dismiss
+                        </Button>
+                      </div>
+                    </AlertDescription>
+                  </Alert>
+                )}
+
+                <div className="space-y-3">
+                  <h3 className="text-lg font-medium">Research examples:</h3>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {[
+                      "A Reddit clone for tech discussions",
+                      "Task management app for remote teams",
+                      "Social media dashboard with analytics",
+                      "E-commerce platform for digital products"
+                    ].map((example, index) => (
+                      <Button
+                        key={index}
+                        variant="outline"
+                        onClick={() => setResearchIdea(example)}
+                        disabled={isResearching}
+                        className="h-auto p-3 text-left justify-start"
+                      >
+                        <div className="flex items-start space-x-3">
+                          <Search className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                          <span className="text-sm">{example}</span>
+                        </div>
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </TabsContent>
+          </Tabs>
+
+          <Separator />
+
+          <Button
+            onClick={() => proceedToStep(2)}
+            disabled={!canProceedToStep(2)}
+            className="w-full"
+            size="lg"
+          >
+            Continue to Preferences
+            <ChevronRight className="w-4 h-4 ml-2" />
+          </Button>
         </CardContent>
       </Card>
     </div>
@@ -1159,17 +1220,25 @@ ${envVarsText}`
   )
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-white to-zinc-50">
-      <div className="container mx-auto px-4 py-8 max-w-6xl">
-        {renderProgressIndicator()}
+    <>
+      <PrelineInit />
+      <div className="min-h-screen bg-gray-50 dark:bg-neutral-900">
+        {/* Header with theme switcher */}
+        <div className="flex justify-end p-4">
+          <ThemeSwitcher />
+        </div>
         
-        {currentStep === 1 && renderStep1()}
-        {currentStep === 2 && renderStep2()}
-        {currentStep === 3 && renderStep3()}
-        {currentStep === 4 && renderStep4()}
-        {currentStep === 5 && renderStep5()}
-        {currentStep === 6 && renderStep6()}
+        <div className="container mx-auto px-4 py-8 max-w-6xl">
+          {renderProgressIndicator()}
+          
+          {currentStep === 1 && renderStep1()}
+          {currentStep === 2 && renderStep2()}
+          {currentStep === 3 && renderStep3()}
+          {currentStep === 4 && renderStep4()}
+          {currentStep === 5 && renderStep5()}
+          {currentStep === 6 && renderStep6()}
+        </div>
       </div>
-    </div>
+    </>
   )
 }
